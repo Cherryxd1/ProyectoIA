@@ -1,31 +1,28 @@
 """
-Sistema de Predicción de Congestión Vehicular - Chillán IA
+Sistema de Predicción de Congestión Vehicular - Chillán IA (MEJORADO)
 Proyecto de Inteligencia Artificial - Universidad del Bío-Bío
 Autores: Diego Loyola, Catalina Toro, Valentina Zúñiga
 
-
+Versión Flask (sin dependencias problemáticas)
 """
 
-import streamlit as st
+from flask import Flask, render_template_string, request, jsonify
 import pandas as pd
 import numpy as np
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error, accuracy_score, classification_report
-import plotly.graph_objects as go
-import plotly.express as px
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+import json
 
-# ============================================================================
-# CONFIGURACIÓN DE PÁGINA
-# ============================================================================
+app = Flask(__name__)
 
-st.set_page_config(
-    page_title="Predicción Congestión Vehicular - Chillán",
-    page_icon="🚗",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Variables globales para el modelo
+modelo = None
+scaler = None
+df_global = None
+feature_cols = None
+metricas = None
 
 # ============================================================================
 # GENERACIÓN DE DATASET SINTÉTICO
@@ -37,16 +34,17 @@ def generar_dataset_sintetico():
     np.random.seed(42)
     
     segmentos = [
-        {"id": "SEG001", "nombre": "Av. O'Higgins (Ruta 5 - L. Arellano)", "lat": -36.606, "lon": -72.103, "long_m": 1200, "tipo": "arterial", "vel_max": 50},
-        {"id": "SEG002", "nombre": "Av. O'Higgins (L. Arellano - P. Piedra)", "lat": -36.606, "lon": -72.095, "long_m": 1500, "tipo": "arterial", "vel_max": 50},
-        {"id": "SEG003", "nombre": "Av. Collín (Sector Norte)", "lat": -36.595, "lon": -72.105, "long_m": 2000, "tipo": "arterial", "vel_max": 60},
-        {"id": "SEG004", "nombre": "Av. Ecuador (Centro)", "lat": -36.610, "lon": -72.100, "long_m": 1000, "tipo": "colectora", "vel_max": 40},
-        {"id": "SEG005", "nombre": "Av. Alonso de Ercilla", "lat": -36.615, "lon": -72.098, "long_m": 1800, "tipo": "arterial", "vel_max": 50},
-        {"id": "SEG006", "nombre": "Puente Chillán-Chillán Viejo", "lat": -36.620, "lon": -72.110, "long_m": 500, "tipo": "arterial", "vel_max": 40},
-        {"id": "SEG007", "nombre": "Rotonda Collín", "lat": -36.593, "lon": -72.108, "long_m": 300, "tipo": "arterial", "vel_max": 30},
-        {"id": "SEG008", "nombre": "Centro Cívico", "lat": -36.606, "lon": -72.104, "long_m": 800, "tipo": "colectora", "vel_max": 30},
-        {"id": "SEG009", "nombre": "Terminal de Buses", "lat": -36.608, "lon": -72.106, "long_m": 600, "tipo": "colectora", "vel_max": 30},
-        {"id": "SEG010", "nombre": "Hospital Herminda Martín", "lat": -36.614, "lon": -72.107, "long_m": 700, "tipo": "colectora", "vel_max": 40},
+        {"id": "SEG001", "nombre": "Av. O'Higgins con Av. Collín", "lat": -36.613056, "lon": -72.111597, "long_m": 1200, "tipo": "arterial", "vel_max": 50},
+        {"id": "SEG002", "nombre": "Av. O'Higgins con Av. Ecuador", "lat": -36.597912, "lon": -72.105803, "long_m": 1500, "tipo": "arterial", "vel_max": 50},
+        {"id": "SEG003", "nombre": "Av. Collín con Av. Argentina", "lat": -36.617130, "lon": -72.097092, "long_m": 2000, "tipo": "arterial", "vel_max": 60},
+        {"id": "SEG004", "nombre": "Av. Ecuador", "lat": -36.599991, "lon": -72.099999, "long_m": 1000, "tipo": "colectora", "vel_max": 40},
+        {"id": "SEG005", "nombre": "Av. Alonso de Ercilla", "lat": -36.625223, "lon": -72.084603, "long_m": 1800, "tipo": "arterial", "vel_max": 50},
+        {"id": "SEG006", "nombre": "Av. O'Higgins Chillán-Chillán Viejo", "lat": -36.620378, "lon": -72.121468, "long_m": 500, "tipo": "arterial", "vel_max": 40},
+        {"id": "SEG007", "nombre": "Av. Collín (Clínica)", "lat": -36.614837, "lon": -72.106812, "long_m": 300, "tipo": "arterial", "vel_max": 30},
+        {"id": "SEG008", "nombre": "5 de Abril", "lat": -36.608176, "lon": -72.101319, "long_m": 800, "tipo": "colectora", "vel_max": 30},
+        {"id": "SEG009", "nombre": "Terminal de Buses María Teresa", "lat": -36.587964, "lon": -72.102649, "long_m": 600, "tipo": "colectora", "vel_max": 30},
+        {"id": "SEG010", "nombre": "Av. Libertad Oriente", "lat": -36.608632, "lon": -72.090847, "long_m": 700, "tipo": "colectora", "vel_max": 40},
+        {"id": "SEG011", "nombre": "Av. Andrés Bello", "lat": -36.592662, "lon": -72.070978, "long_m": 1200, "tipo": "arterial", "vel_max": 50},
     ]
     
     fechas = pd.date_range(start='2024-10-01', periods=60, freq='D')
@@ -127,104 +125,64 @@ def generar_dataset_sintetico():
 
 
 # ============================================================================
-# FUNCIONES DE FEATURE ENGINEERING MEJORADO
+# FUNCIONES DE MODELO
 # ============================================================================
 
-def crear_features_ciclicas(df):
-    """Convierte hora en features cíclicas (sin y cos)."""
-    df = df.copy()
-    # Hora cíclica: 0-23 horas
-    df['hora_sin'] = np.sin(2 * np.pi * df['hora'] / 24)
-    df['hora_cos'] = np.cos(2 * np.pi * df['hora'] / 24)
+def cargar_datos():
+    """Carga el dataset desde CSV o genera uno sintético."""
+    try:
+        df = pd.read_csv('dataset_congestion_vehicular_chillan.csv')
+        print("✅ Dataset cargado desde archivo CSV")
+    except FileNotFoundError:
+        df = generar_dataset_sintetico()
+        print("ℹ️ Usando dataset sintético generado")
+    
     return df
 
 
-def preprocesar_datos_mejorado(df):
-    """
-    Preprocesa el dataset con mejoras de Feature Engineering:
-    1. Eliminamos velocidad_promedio como feature (es resultado de congestión)
-    2. Agrega features cíclicas para hora
-    3. Incluye segmento_id como contexto
-    4. One-hot encoding mejorado
-    """
+def preprocesar_datos(df):
+    """Preprocesa el dataset para entrenamiento."""
     df_proc = df.copy()
+    df_proc = pd.get_dummies(df_proc, columns=['dia_semana', 'tipo_via'], drop_first=True)
     
-    # 1. Crear features cíclicas para hora
-    df_proc = crear_features_ciclicas(df_proc)
-    
-    # 2. One-hot encoding para variables categóricas
-    df_proc = pd.get_dummies(df_proc, columns=['dia_semana', 'tipo_via', 'segmento_id'], drop_first=True)
-    
-    # 3. Definir features (SIN velocidad_promedio)
-    exclude_cols = [
-        'fecha_hora', 'segmento_nombre', 'latitud', 'longitud',
-        'indice_congestion', 'categoria_flujo', 'velocidad_promedio_kmh',
-        'hora'  # Eliminamos hora lineal, usamos sin/cos
-    ]
-    
-    feature_cols = [col for col in df_proc.columns if col not in exclude_cols]
+    feature_cols = [col for col in df_proc.columns if col not in [
+        'fecha_hora', 'segmento_id', 'segmento_nombre', 'latitud', 'longitud',
+        'indice_congestion', 'categoria_flujo'
+    ]]
     
     X = df_proc[feature_cols]
     y = df_proc['indice_congestion']
     
-    # También guardamos categorías para evaluación
-    y_cat = df_proc['categoria_flujo']
+    return X, y, feature_cols
+
+
+def entrenar_modelo(X, y):
+    """Entrena el modelo MLPRegressor."""
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    return X, y, y_cat, feature_cols
-
-
-# ============================================================================
-# FUNCIONES DE MODELO y PREDICCIÓN 
-# ============================================================================
-
-@st.cache_data
-def cargar_datos():
-    """Carga el dataset real desde CSV."""
-    try:
-        df = pd.read_csv('dataset_congestion_vehicular_chillan.csv')
-        st.success(f"Dataset real cargado: {len(df)} registros")
-        return df
-    except FileNotFoundError:
-        st.error("Error: No se encontró el archivo 'dataset_congestion_vehicular_chillan.csv'")
-        st.warning("Generando dataset sintético como respaldo...")
-        df = generar_dataset_sintetico()
-        return df
-    except Exception as e:
-        st.error(f"Error al cargar CSV: {str(e)}")
-        st.warning("Generando dataset sintético como respaldo...")
-        df = generar_dataset_sintetico()
-        return df
-
-
-@st.cache_resource
-def entrenar_modelo_mejorado(X, y, y_cat):
-    """
-    Entrena el modelo MLPRegressor con arquitectura mejorada.
-    También evalúa precisión de clasificación.
-    """
-    X_train, X_test, y_train, y_test, y_cat_train, y_cat_test = train_test_split(
-        X, y, y_cat, test_size=0.2, random_state=42
-    )
-    
+    # Escalado
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     
-    # Modelo con arquitectura más profunda
     modelo = MLPRegressor(
-        hidden_layer_sizes=(128, 64, 32),  # 3 capas ocultas
+        hidden_layer_sizes=(64, 32),
         activation='relu',
         solver='adam',
+        alpha=0.001,  # Regularización L2
+        learning_rate='adaptive',
         learning_rate_init=0.001,
-        max_iter=1000,
+        max_iter=500,
         random_state=42,
         early_stopping=True,
-        validation_fraction=0.15,
-        n_iter_no_change=20,
+        validation_fraction=0.1,
+        n_iter_no_change=10,
         verbose=False
     )
     
-    modelo.fit(X_train_scaled, y_train)
+    # Entrenar
+    with st.spinner("🧠 Entrenando Red Neuronal MLP..."):
+        modelo.fit(X_train_scaled, y_train)
     
     # Predicciones
     y_pred_train = modelo.predict(X_train_scaled)
@@ -249,55 +207,37 @@ def entrenar_modelo_mejorado(X, y, y_cat):
         'train_rmse': round(np.sqrt(mean_squared_error(y_train, y_pred_train)), 2),
         'test_r2': round(r2_score(y_test, y_pred_test), 4),
         'test_mae': round(mean_absolute_error(y_test, y_pred_test), 2),
-        'test_rmse': round(np.sqrt(mean_squared_error(y_test, y_pred_test)), 2),
-        'train_acc_cat': round(accuracy_score(y_cat_train, y_pred_cat_train), 4),
-        'test_acc_cat': round(accuracy_score(y_cat_test, y_pred_cat_test), 4)
+        'test_rmse': round(np.sqrt(mean_squared_error(y_test, y_pred_test)), 2)
     }
     
-    # Reporte de clasificación
-    report = classification_report(y_cat_test, y_pred_cat_test, output_dict=True)
+    return modelo, scaler, metricas
+
+
+def predecir_congestion(hora, dia_semana, temperatura, llueve, velocidad_promedio):
+    """Realiza predicciones para todos los segmentos."""
+    global modelo, scaler, df_global, feature_cols
     
-    return modelo, scaler, metricas, y_test, y_pred_test, y_cat_test, y_pred_cat_test, report
-
-
-def predecir_congestion_mejorado(modelo, scaler, df_global, feature_cols, hora, dia_semana, temperatura, llueve):
-    """
-    Realiza predicciones SIN usar velocidad_promedio como input.
-    Predice basándose solo en contexto temporal, climático y del segmento.
-    """
     segmentos = df_global[['segmento_id', 'segmento_nombre', 'latitud', 'longitud', 
                            'tipo_via', 'velocidad_maxima_kmh', 'longitud_m']].drop_duplicates()
     
     predicciones = []
     
-    # Calcular features cíclicas de hora
-    hora_sin = np.sin(2 * np.pi * hora / 24)
-    hora_cos = np.cos(2 * np.pi * hora / 24)
-    
     for _, seg in segmentos.iterrows():
         entrada = {
-            'hora_sin': hora_sin,
-            'hora_cos': hora_cos,
+            'hora': hora,
             'longitud_m': seg['longitud_m'],
             'velocidad_maxima_kmh': seg['velocidad_maxima_kmh'],
             'temperatura_c': temperatura,
             'lluvia_mm': 2.0 if llueve else 0.0,
-            'llueve': 1 if llueve else 0
-            # NO incluimos velocidad_promedio
+            'llueve': 1 if llueve else 0,
+            'velocidad_promedio_kmh': velocidad_promedio
         }
         
-        # One-hot para día de semana
         for dia in ['Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']:
             entrada[f'dia_semana_{dia}'] = 1 if dia_semana == dia else 0
         
-        # One-hot para tipo de vía
         for tipo in ['colectora', 'local']:
             entrada[f'tipo_via_{tipo}'] = 1 if seg['tipo_via'] == tipo else 0
-        
-        # One-hot para segmento_id
-        for seg_id in ['SEG002', 'SEG003', 'SEG004', 'SEG005', 'SEG006', 
-                       'SEG007', 'SEG008', 'SEG009', 'SEG010']:
-            entrada[f'segmento_id_{seg_id}'] = 1 if seg['segmento_id'] == seg_id else 0
         
         df_entrada = pd.DataFrame([entrada])
         
@@ -307,23 +247,30 @@ def predecir_congestion_mejorado(modelo, scaler, df_global, feature_cols, hora, 
                 df_entrada[col] = 0
         
         df_entrada = df_entrada[feature_cols]
+        
+        # Predicción estándar
         entrada_scaled = scaler.transform(df_entrada)
         prediccion = modelo.predict(entrada_scaled)[0]
         prediccion = max(0, min(prediccion, 100))
         
+        # Intervalos de confianza (opcional, más lento)
+        if usar_bootstrap:
+            intervalos = predecir_con_bootstrap(modelo, scaler, X_train, y_train, df_entrada, n_bootstrap=5)
+            pred_min = max(0, intervalos['percentil_5'][0])
+            pred_max = min(100, intervalos['percentil_95'][0])
+        else:
+            pred_min = max(0, prediccion - 10)
+            pred_max = min(100, prediccion + 10)
+        
         if prediccion < 30:
             categoria = "Fluido"
-            color = "#4caf50"
+            color = "green"
         elif prediccion < 60:
             categoria = "Moderado"
-            color = "#ff9800"
+            color = "orange"
         else:
             categoria = "Congestionado"
-            color = "#f44336"
-        
-        # Estimar velocidad basada en predicción
-        reduccion = prediccion / 100
-        velocidad_estimada = seg['velocidad_maxima_kmh'] * (1 - reduccion)
+            color = "red"
         
         predicciones.append({
             'segmento_id': seg['segmento_id'],
@@ -331,6 +278,8 @@ def predecir_congestion_mejorado(modelo, scaler, df_global, feature_cols, hora, 
             'latitud': seg['latitud'],
             'longitud': seg['longitud'],
             'prediccion': round(prediccion, 1),
+            'pred_min': round(pred_min, 1),
+            'pred_max': round(pred_max, 1),
             'categoria': categoria,
             'color': color,
             'velocidad_estimada': round(velocidad_estimada, 1)
@@ -340,265 +289,367 @@ def predecir_congestion_mejorado(modelo, scaler, df_global, feature_cols, hora, 
 
 
 # ============================================================================
-# INTERFAZ STREAMLIT
+# INICIALIZACIÓN
 # ============================================================================
 
-# Header
-st.title("Sistema de Predicción de Congestión Vehicular ")
-st.markdown("**Chillán - Inteligencia Artificial | Universidad del Bío-Bío**")
-st.markdown("---")
+print("🔄 Cargando datos y entrenando modelo...")
+df_global = cargar_datos()
+X, y, feature_cols = preprocesar_datos(df_global)
+modelo, scaler, metricas = entrenar_modelo(X, y)
+print(f"✅ Modelo entrenado - R²: {metricas['test_r2']}, MAE: {metricas['test_mae']}")
 
-# Cargar y entrenar modelo
-with st.spinner("Cargando datos y entrenando modelo MLP mejorado..."):
-    df_global = cargar_datos()
+
+# ============================================================================
+# PLANTILLA HTML
+# ============================================================================
+
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predicción Congestión Vehicular - Chillán</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.1em; opacity: 0.9; }
+        
+        .container {
+            max-width: 1400px;
+            margin: 30px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+        
+        .sidebar {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+        
+        .sidebar h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .btn-predict {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .btn-predict:hover {
+            transform: translateY(-2px);
+        }
+        
+        .metrics {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
+        
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+        
+        .metric-label { color: #666; }
+        .metric-value { font-weight: 700; color: #667eea; }
+        
+        .main-content {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        #map {
+            width: 100%;
+            height: 600px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .result-card {
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+        
+        .result-card.fluido { border-color: #4caf50; background: #f1f8e9; }
+        .result-card.moderado { border-color: #ff9800; background: #fff3e0; }
+        .result-card.congestionado { border-color: #f44336; background: #ffebee; }
+        
+        .result-card h3 { font-size: 0.9em; color: #333; margin-bottom: 8px; }
+        .result-card .indice { font-size: 1.5em; font-weight: 700; }
+        .result-card .categoria { font-size: 0.9em; opacity: 0.8; }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 50px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+        
+        @media (max-width: 1024px) {
+            .container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚗 Sistema de Predicción de Congestión Vehicular</h1>
+        <p>Chillán - Inteligencia Artificial | Universidad del Bío-Bío</p>
+    </div>
     
-    # Mostrar información del dataset
-    with st.expander("Ver información del dataset cargado", expanded=False):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total registros", f"{len(df_global):,}")
-        with col2:
-            st.metric("Segmentos únicos", df_global['segmento_id'].nunique())
-        with col3:
-            st.metric("Días de datos", df_global['fecha_hora'].nunique() // 24)
-        
-        st.write("**Primeras filas del dataset:**")
-        st.dataframe(df_global.head(10))
-        
-        st.write("**Columnas disponibles:**")
-        st.write(list(df_global.columns))
-    
-    X, y, y_cat, feature_cols = preprocesar_datos_mejorado(df_global)
-    modelo, scaler, metricas, y_test, y_pred_test, y_cat_test, y_pred_cat_test, report = entrenar_modelo_mejorado(X, y, y_cat)
-
-# Sidebar - Configuración
-st.sidebar.header("Configuración de Predicción")
-
-
-hora = st.sidebar.slider("🕐 Hora del día", 0, 23, 8)
-dia_semana = st.sidebar.selectbox("📅 Día de la semana", 
-    ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'])
-temperatura = st.sidebar.number_input("🌡️ Temperatura (°C)", 5, 35, 18)
-llueve = st.sidebar.checkbox("🌧️ ¿Está lloviendo?")
-
-st.sidebar.markdown("---")
-st.sidebar.header("📊 Métricas del Modelo MLP")
-
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    st.metric("R² Train", f"{metricas['train_r2']:.4f}")
-    st.metric("MAE Train", f"{metricas['train_mae']:.2f}")
-    st.metric("Acc Cat Train", f"{metricas['train_acc_cat']:.2%}")
-with col2:
-    st.metric("R² Test", f"{metricas['test_r2']:.4f}")
-    st.metric("MAE Test", f"{metricas['test_mae']:.2f}")
-    st.metric("Acc Cat Test", f"{metricas['test_acc_cat']:.2%}")
-
-
-
-# Botón de predicción
-if st.sidebar.button("Predecir Congestión Vehicular", type="primary"):
-    with st.spinner("Generando predicciones..."):
-        predicciones = predecir_congestion_mejorado(
-            modelo, scaler, df_global, feature_cols,
-            hora, dia_semana, temperatura, llueve
-        )
-        st.session_state['predicciones'] = predicciones
-
-# Contenido principal
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.header("🗺️ Mapa de Congestión Predicha")
-    
-    if 'predicciones' in st.session_state:
-        predicciones = st.session_state['predicciones']
-        df_pred = pd.DataFrame(predicciones)
-        
-        # Crear mapa con plotly
-        fig = px.scatter_mapbox(
-            df_pred,
-            lat='latitud',
-            lon='longitud',
-            color='prediccion',
-            size='prediccion',
-            hover_name='segmento_nombre',
-            hover_data={
-                'prediccion': ':.1f',              # Con formato
-                'categoria': True, 
-                'velocidad_estimada': ':.1f',      # Con formato
-                'latitud': ':.4f',                 # Mostrar pero con formato
-                'longitud': ':.4f'                 # Mostrar pero con formato
-            },
-            color_continuous_scale=['green', 'yellow', 'red'],
-            size_max=25,                           # Puntos más grandes
-            zoom=13,                               # Más zoom
-            center={"lat": -36.606, "lon": -72.103},  # Centrado en Chillán
-            height=600,
-            labels={'prediccion': 'Índice de Congestión'}  # Label mejorado
-        )
-        
-        fig.update_layout(
-            mapbox_style="open-street-map",
-            margin={"r":0,"t":0,"l":0,"b":0}
-        )
-        
-        st.plotly_chart(fig, width='stretch')
-    else:
-        st.info("Configura los parámetros en el panel lateral y presiona 'Predecir Congestión'")
-
-with col2:
-    st.header("📋 Resultados por Segmento")
-    
-    if 'predicciones' in st.session_state:
-        for pred in st.session_state['predicciones']:
-            with st.container():
-                if pred['categoria'] == 'Fluido':
-                    st.success(f"**{pred['segmento_nombre']}**")
-                elif pred['categoria'] == 'Moderado':
-                    st.warning(f"**{pred['segmento_nombre']}**")
-                else:
-                    st.error(f"**{pred['segmento_nombre']}**")
+    <div class="container">
+        <div class="sidebar">
+            <h2>⚙️ Configuración</h2>
+            <form id="predictionForm">
+                <div class="form-group">
+                    <label>🕐 Hora del día (0-23)</label>
+                    <input type="number" id="hora" min="0" max="23" value="8" required>
+                </div>
                 
-                st.write(f"🚦 Índice: **{pred['prediccion']}**")
-                st.write(f"📊 Estado: **{pred['categoria']}**")
-                st.write(f"🚗 Vel. estimada: **{pred['velocidad_estimada']} km/h**")
-                st.markdown("---")
-
-# Análisis del modelo
-st.header("📈 Análisis del Modelo")
-
-tab1, tab2, tab3, tab4 = st.tabs(["Rendimiento Regresión", "Clasificación", "Distribución", "Matriz de Confusión"])
-
-with tab1:
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Gráfico de predicción vs real
-        fig_scatter = px.scatter(
-            x=y_test, y=y_pred_test,
-            labels={'x': 'Valor Real', 'y': 'Valor Predicho'},
-            title='Predicciones vs Valores Reales'
-        )
-        fig_scatter.add_trace(
-            go.Scatter(x=[0, 100], y=[0, 100], mode='lines', name='Ideal', line=dict(dash='dash', color='red'))
-        )
-        st.plotly_chart(fig_scatter, width='stretch')
-    
-    with col2:
-        # Distribución de errores
-        errores = y_test - y_pred_test
-        fig_hist = px.histogram(
-            x=errores,
-            nbins=30,
-            labels={'x': 'Error de Predicción'},
-            title='Distribución de Errores'
-        )
-        st.plotly_chart(fig_hist, width='stretch')
-
-with tab2:
-    st.subheader("📊 Reporte de Clasificación (Categorías)")
-    
-    # Mostrar métricas por categoría
-    col1, col2, col3 = st.columns(3)
-    
-    categorias = ['Fluido', 'Moderado', 'Congestionado']
-    for i, cat in enumerate(categorias):
-        with [col1, col2, col3][i]:
-            st.metric(
-                f"{cat}",
-                f"{report[cat]['f1-score']:.2%}",
-                delta=f"Precision: {report[cat]['precision']:.2%}"
-            )
-            st.caption(f"Recall: {report[cat]['recall']:.2%} | Support: {int(report[cat]['support'])}")
-    
-    # Exactitud general
-    st.metric("Exactitud General (Categorías)", f"{metricas['test_acc_cat']:.2%}")
-
-with tab3:
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Distribución de índice de congestión
-        fig_dist = px.histogram(
-            df_global, x='indice_congestion', color='categoria_flujo',
-            title='Distribución del Índice de Congestión',
-            labels={'indice_congestion': 'Índice de Congestión'},
-            nbins=50
-        )
-        st.plotly_chart(fig_dist, width='stretch')
-    
-    with col2:
-        # Distribución de categorías predichas vs reales
-        df_comp = pd.DataFrame({
-            'Real': y_cat_test.values,
-            'Predicho': y_pred_cat_test
-        })
+                <div class="form-group">
+                    <label>📅 Día de la semana</label>
+                    <select id="dia_semana">
+                        <option value="Lunes">Lunes</option>
+                        <option value="Martes">Martes</option>
+                        <option value="Miércoles">Miércoles</option>
+                        <option value="Jueves">Jueves</option>
+                        <option value="Viernes">Viernes</option>
+                        <option value="Sábado">Sábado</option>
+                        <option value="Domingo">Domingo</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>🌡️ Temperatura (°C)</label>
+                    <input type="number" id="temperatura" min="5" max="35" value="18" required>
+                </div>
+                
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="llueve">
+                    <label for="llueve">🌧️ ¿Está lloviendo?</label>
+                </div>
+                
+                <div class="form-group">
+                    <label>🚙 Velocidad promedio (km/h)</label>
+                    <input type="number" id="velocidad" min="10" max="80" value="40" required>
+                </div>
+                
+                <button type="submit" class="btn-predict">🔮 Realizar Predicción</button>
+            </form>
+            
+            <div class="metrics">
+                <h2>📊 Métricas del Modelo</h2>
+                <div class="metric-item">
+                    <span class="metric-label">R² (Test)</span>
+                    <span class="metric-value">{{ metricas.test_r2 }}</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">MAE (Test)</span>
+                    <span class="metric-value">{{ metricas.test_mae }}</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">RMSE (Test)</span>
+                    <span class="metric-value">{{ metricas.test_rmse }}</span>
+                </div>
+            </div>
+        </div>
         
-        fig_cat = px.histogram(
-            df_comp, 
-            x='Real', 
-            color='Predicho',
-            barmode='group',
-            title='Categorías: Real vs Predicho',
-            labels={'Real': 'Categoría Real', 'count': 'Frecuencia'}
-        )
-        st.plotly_chart(fig_cat, width='stretch')
+        <div class="main-content">
+            <h2>🗺️ Mapa de Congestión Predicha</h2>
+            <div id="map"></div>
+            <div class="loading" id="loading">⏳ Generando predicciones...</div>
+            <div class="results" id="results"></div>
+        </div>
+    </div>
+    
+    <script>
+        let map = L.map('map').setView([-36.606, -72.103], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        let markers = [];
+        
+        document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            
+            loading.style.display = 'block';
+            results.innerHTML = '';
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+            
+            const data = {
+                hora: parseInt(document.getElementById('hora').value),
+                dia_semana: document.getElementById('dia_semana').value,
+                temperatura: parseFloat(document.getElementById('temperatura').value),
+                llueve: document.getElementById('llueve').checked,
+                velocidad_promedio: parseFloat(document.getElementById('velocidad').value)
+            };
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const predicciones = await response.json();
+                
+                predicciones.forEach(pred => {
+                    const colorMap = {
+                        'green': '#4caf50',
+                        'orange': '#ff9800',
+                        'red': '#f44336'
+                    };
+                    
+                    const marker = L.circleMarker([pred.latitud, pred.longitud], {
+                        radius: 10,
+                        fillColor: colorMap[pred.color],
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(map);
+                    
+                    marker.bindPopup(`
+                        <b>${pred.segmento_nombre}</b><br>
+                        Índice: ${pred.prediccion}<br>
+                        Estado: ${pred.categoria}
+                    `);
+                    
+                    markers.push(marker);
+                    
+                    const card = document.createElement('div');
+                    card.className = `result-card ${pred.categoria.toLowerCase()}`;
+                    card.innerHTML = `
+                        <h3>${pred.segmento_nombre}</h3>
+                        <div class="indice">${pred.prediccion}</div>
+                        <div class="categoria">${pred.categoria}</div>
+                    `;
+                    results.appendChild(card);
+                });
+                
+            } catch (error) {
+                alert('Error al realizar predicción: ' + error);
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
+"""
 
-with tab4:
-    # Matriz de confusión
-    from sklearn.metrics import confusion_matrix
-    
-    cm = confusion_matrix(y_cat_test, y_pred_cat_test, labels=['Fluido', 'Moderado', 'Congestionado'])
-    
-    fig_cm = px.imshow(
-        cm,
-        labels=dict(x="Predicho", y="Real", color="Cantidad"),
-        x=['Fluido', 'Moderado', 'Congestionado'],
-        y=['Fluido', 'Moderado', 'Congestionado'],
-        title='Matriz de Confusión',
-        text_auto=True,
-        color_continuous_scale='Blues'
+
+# ============================================================================
+# RUTAS FLASK
+# ============================================================================
+
+@app.route('/')
+def index():
+    return render_template_string(HTML_TEMPLATE, metricas=metricas)
+
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    data = request.json
+    predicciones = predecir_congestion(
+        hora=data['hora'],
+        dia_semana=data['dia_semana'],
+        temperatura=data['temperatura'],
+        llueve=data['llueve'],
+        velocidad_promedio=data['velocidad_promedio']
     )
-    
-    st.plotly_chart(fig_cm, width='stretch')
-    
-    # Heatmap de congestión por hora y día
-    st.subheader("Patrón de Congestión: Hora vs Día")
-    df_agg = df_global.groupby(['hora', 'dia_semana'])['indice_congestion'].mean().reset_index()
-    
-    # Reordenar días
-    orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-    df_agg['dia_semana'] = pd.Categorical(df_agg['dia_semana'], categories=orden_dias, ordered=True)
-    df_agg = df_agg.sort_values('dia_semana')
-    
-    fig_heatmap = px.density_heatmap(
-        df_agg, x='hora', y='dia_semana', z='indice_congestion',
-        title='Congestión Promedio por Hora y Día',
-        color_continuous_scale='RdYlGn_r',
-        labels={'indice_congestion': 'Índice', 'hora': 'Hora del día', 'dia_semana': 'Día'}
-    )
-    st.plotly_chart(fig_heatmap, width='stretch')
+    return jsonify(predicciones)
 
-# Comparación de features
-st.header("Importancia de Features")
 
-with st.expander("Ver lista de features utilizadas"):
-    st.write(f"**Total de features:** {len(feature_cols)}")
-    st.write("**Features incluidas:**")
-    
-    col1, col2 = st.columns(2)
-    mid = len(feature_cols) // 2
-    
-    with col1:
-        for feat in feature_cols[:mid]:
-            st.text(f"• {feat}")
-    
-    with col2:
-        for feat in feature_cols[mid:]:
-            st.text(f"• {feat}")
-
-st.markdown("""
-
-**Autores:** Diego Loyola, Catalina Toro, Valentina Zúñiga | **Universidad del Bío-Bío**
-""")
+if __name__ == '__main__':
+    print("\n" + "="*60)
+    print("🚀 Servidor Flask iniciado")
+    print("📍 Abre tu navegador en: http://127.0.0.1:5000")
+    print("="*60 + "\n")
+    app.run(debug=True, port=5000)
