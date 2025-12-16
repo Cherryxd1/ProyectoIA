@@ -1223,6 +1223,6 @@ st.markdown("""
     <p><strong>Sistema de Predicción de Congestión Vehicular v2.0</strong></p>
     <p>Modelo: MLP Regressor con arquitectura profunda (256-128-64-32)</p>
     <p>Autores: Diego Loyola, Catalina Toro, Valentina Zúñiga | Universidad del Bío-Bío</p>
-    <p>🚗 Chillán IA - 2024</p>
+    <p> Chillán, Inteligencia Artificial UBB - 2025 </p>
 </div>
 """, unsafe_allow_html=True)
