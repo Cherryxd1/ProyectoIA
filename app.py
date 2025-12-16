@@ -25,7 +25,7 @@ from pathlib import Path
 
 st.set_page_config(
     page_title="Predicción Congestión Vehicular - Chillán",
-    page_icon="🚗",
+     
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -85,7 +85,7 @@ def generar_dataset_sintetico():
             for seg in segmentos:
                 vel_base = seg['vel_max'] * 0.85
                 
-                # Horas punta MÁS severas
+                # Horas punta MÁS severas en chillan
                 if hora in [8, 9, 18, 19]:
                     factor_hora = 0.35
                 elif hora in [7, 10, 17, 20]:
@@ -266,7 +266,7 @@ def entrenar_modelo_mlp_avanzado(X, y, y_cat):
     )
     
     # Entrenar
-    with st.spinner("🧠 Entrenando Red Neuronal MLP..."):
+    with st.spinner("Entrenando Red Neuronal MLP..."):
         modelo.fit(X_train_scaled, y_train)
     
     # Predicciones
@@ -303,56 +303,6 @@ def entrenar_modelo_mlp_avanzado(X, y, y_cat):
     report = classification_report(y_cat_test, y_pred_cat_test, output_dict=True)
     
     return modelo, scaler, metricas, y_test, y_pred_test, y_cat_test, y_pred_cat_test, report, X_train, X_test
-
-
-# VALIDACIÓN TEMPORAL
-
-def validacion_temporal_mlp(X, y):
-    """Valida el modelo usando Time Series Split."""
-    tscv = TimeSeriesSplit(n_splits=5)
-    scores_r2 = []
-    scores_mae = []
-    
-    # Reset index para evitar problemas
-    X_reset = X.reset_index(drop=True)
-    y_reset = y.reset_index(drop=True)
-    
-    with st.spinner("🔄 Realizando validación temporal (5 splits)..."):
-        progress_bar = st.progress(0)
-        for i, (train_idx, test_idx) in enumerate(tscv.split(X_reset)):
-            X_train, X_test = X_reset.iloc[train_idx], X_reset.iloc[test_idx]
-            y_train, y_test = y_reset.iloc[train_idx], y_reset.iloc[test_idx]
-            
-            scaler = StandardScaler()
-            X_train_scaled = scaler.fit_transform(X_train)
-            X_test_scaled = scaler.transform(X_test)
-            
-            modelo = MLPRegressor(
-                hidden_layer_sizes=(128, 64, 32),
-                activation='relu',
-                solver='adam',
-                max_iter=500,
-                random_state=42,
-                early_stopping=True,
-                verbose=False
-            )
-            
-            modelo.fit(X_train_scaled, y_train)
-            y_pred = modelo.predict(X_test_scaled)
-            
-            scores_r2.append(r2_score(y_test, y_pred))
-            scores_mae.append(mean_absolute_error(y_test, y_pred))
-            
-            progress_bar.progress((i + 1) / 5)
-    
-    return {
-        'r2_mean': np.mean(scores_r2),
-        'r2_std': np.std(scores_r2),
-        'mae_mean': np.mean(scores_mae),
-        'mae_std': np.std(scores_mae),
-        'scores_r2': scores_r2,
-        'scores_mae': scores_mae
-    }
 
 
 
@@ -549,9 +499,9 @@ def cargar_datos():
         return df
 
 
-# INTERFAZ STREAMLIT MEJORADA
+# INTERFAZ STREAMLIT 
 
-# Header con diseño mejorado
+
 st.title(" Sistema de Predicción de Congestión Vehicular")
 st.markdown("**Chillán - Inteligencia Artificial | Universidad del Bío-Bío**")
 st.markdown("*Modelo de Regresión Supervisada con MLP (Multi-Layer Perceptron)*")
@@ -629,7 +579,7 @@ st.markdown("---")
 # Sidebar - Configuración de Predicción
 st.sidebar.header(" Configuración de Predicción")
 
-hora = st.sidebar.slider("🕐 Hora del día", 0, 23, 8, help="Hora para predicción (0-23)")
+hora = st.sidebar.slider("Hora del día", 0, 23, 8, help="Hora para predicción (0-23)")
 dia_semana = st.sidebar.selectbox(
     " Día de la semana", 
     ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'],
@@ -677,20 +627,6 @@ if st.sidebar.button(" Predecir Congestión", type="primary", use_container_widt
             'llueve': llueve
         }
 
-# Exportación de datos
-st.sidebar.markdown("---")
-if 'predicciones' in st.session_state:
-    st.sidebar.header(" Exportar Resultados")
-    df_export = pd.DataFrame(st.session_state['predicciones'])
-    
-    csv = df_export.to_csv(index=False)
-    st.sidebar.download_button(
-        label="📥 Descargar CSV",
-        data=csv,
-        file_name=f"predicciones_{hora}h_{dia_semana}.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
 
 # Contenido principal
 st.markdown("---")
@@ -706,7 +642,7 @@ with col1:
         # Mostrar contexto de predicción
         st.info(f" **Contexto:** {params.get('dia', '')} - {params.get('hora', 0)}:00h | "
                 f" {params.get('temp', 0)}°C | "
-                f"{'🌧️ Lluvia' if params.get('llueve', False) else '☀️ Sin lluvia'}")
+                f"{'Lluvia' if params.get('llueve', False) else 'Sin lluvia'}")
         
         df_pred = pd.DataFrame(predicciones)
         
@@ -841,12 +777,12 @@ with col2:
 st.markdown("---")
 st.header(" Análisis y Validación del Modelo")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4,  = st.tabs([
     "• Rendimiento Regresión",
     "• Clasificación",
     "• Distribución",
     "• Matriz Confusión",
-    "• Validación Temporal"
+    
 ])
 
 with tab1:
@@ -953,7 +889,7 @@ with tab2:
         st.metric("Macro Avg F1", f"{report['macro avg']['f1-score']:.2%}")
 
 with tab3:
-    st.subheader("📉 Análisis de Distribución")
+    st.subheader("Análisis de Distribución")
     
     col1, col2 = st.columns(2)
     
@@ -1059,69 +995,9 @@ with tab4:
     
     st.plotly_chart(fig_heatmap, use_container_width=True)
 
-with tab5:
-    st.subheader("Validación Temporal (Time Series)")
-    
-    if st.button("Ejecutar Validación Temporal (5-Fold)", key="val_temporal"):
-        val_results = validacion_temporal_mlp(X, y)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.metric(
-                "R² Promedio",
-                f"{val_results['r2_mean']:.4f}",
-                delta=f"± {val_results['r2_std']:.4f}",
-                help="R² promedio en validación cruzada temporal"
-            )
-            
-            # Gráfico de R² por fold
-            fig_r2 = go.Figure()
-            fig_r2.add_trace(go.Bar(
-                x=[f"Fold {i+1}" for i in range(5)],
-                y=val_results['scores_r2'],
-                marker_color='lightblue',
-                name='R² Score'
-            ))
-            fig_r2.add_hline(
-                y=val_results['r2_mean'],
-                line_dash="dash",
-                line_color="red",
-                annotation_text=f"Media: {val_results['r2_mean']:.4f}"
-            )
-            fig_r2.update_layout(title='R² Score por Fold', yaxis_title='R²')
-            st.plotly_chart(fig_r2, use_container_width=True)
-        
-        with col2:
-            st.metric(
-                "MAE Promedio",
-                f"{val_results['mae_mean']:.2f}",
-                delta=f"± {val_results['mae_std']:.2f}",
-                delta_color="inverse",
-                help="MAE promedio en validación cruzada temporal"
-            )
-            
-            # Gráfico de MAE por fold
-            fig_mae = go.Figure()
-            fig_mae.add_trace(go.Bar(
-                x=[f"Fold {i+1}" for i in range(5)],
-                y=val_results['scores_mae'],
-                marker_color='lightcoral',
-                name='MAE'
-            ))
-            fig_mae.add_hline(
-                y=val_results['mae_mean'],
-                line_dash="dash",
-                line_color="blue",
-                annotation_text=f"Media: {val_results['mae_mean']:.2f}"
-            )
-            fig_mae.update_layout(title='MAE por Fold', yaxis_title='MAE')
-            st.plotly_chart(fig_mae, use_container_width=True)
-        
-        st.success(" Validación temporal completada. El modelo muestra consistencia en predicciones temporales.")
-    else:
-        st.info("Presiona el botón para ejecutar validación temporal con 5 folds secuenciales")
 
+        
+       
 # Comparación histórica
 st.markdown("---")
 st.header(" Comparación con Datos Históricos")
