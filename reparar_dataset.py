@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 # ============================================================================
-# 📍 COORDENADAS OFICIALES - PUNTOS REALES DE CHILLÁN (ESQUEMA CORREGIDO)
+# COORDENADAS OFICIALES - PUNTOS REALES DE CHILLÁN (ESQUEMA CORREGIDO)
 # ============================================================================
 
 SEGMENTOS_CHILLAN = [
