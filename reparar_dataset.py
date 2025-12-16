@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 # ============================================================================
-# COORDENADAS OFICIALES - PUNTOS REALES DE CHILLÁN (ESQUEMA CORREGIDO)
+# 📍 COORDENADAS OFICIALES - PUNTOS REALES DE CHILLÁN (ESQUEMA CORREGIDO)
 # ============================================================================
 
 SEGMENTOS_CHILLAN = [
@@ -111,7 +111,7 @@ def generar_dataset_historico():
     # Guardar CSV
     filename = 'dataset_congestion_vehicular_chillan.csv'
     df.to_csv(filename, index=False)
-    print(f"✅ Archivo '{filename}' generado exitosamente con {len(df)} registros. Esquema corregido.")
+    print(f" Archivo '{filename}' generado exitosamente con {len(df)} registros. Esquema corregido.")
 
 if __name__ == "__main__":
     generar_dataset_historico()

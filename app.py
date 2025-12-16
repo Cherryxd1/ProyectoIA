@@ -1,18 +1,8 @@
 """
-Sistema de Predicción de Congestión Vehicular - Chillán IA (MEJORADO)
+Sistema de Predicción de Congestión Vehicular - Chillán 
 Proyecto de Inteligencia Artificial - Universidad del Bío-Bío
-Autores: Diego Loyola, Catalina Toro, Valentina Zúñiga
+Estudiantes: Diego Loyola, Catalina Toro, Valentina Zúñiga
 
-MEJORAS IMPLEMENTADAS:
-- Arquitectura MLP más profunda con regularización
-- Features avanzadas (interacciones, temporales, cíclicas)
-- Validación temporal (Time Series)
-- Análisis de importancia de features
-- Predicciones con intervalos de confianza
-- Sistema de caché inteligente
-- Comparación histórica
-- Exportación de datos
-- Métricas mejoradas
 """
 
 import streamlit as st
@@ -30,9 +20,8 @@ import hashlib
 import pickle
 from pathlib import Path
 
-# ============================================================================
+
 # CONFIGURACIÓN DE PÁGINA
-# ============================================================================
 
 st.set_page_config(
     page_title="Predicción Congestión Vehicular - Chillán",
@@ -56,9 +45,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================================
 # GENERACIÓN DE DATASET SINTÉTICO
-# ============================================================================
+
 
 @st.cache_data
 def generar_dataset_sintetico():
@@ -156,9 +144,8 @@ def generar_dataset_sintetico():
     return pd.DataFrame(datos)
 
 
-# ============================================================================
+
 # FUNCIONES DE FEATURE ENGINEERING AVANZADO
-# ============================================================================
 
 def crear_features_avanzadas(df):
     """Crea features avanzadas con interacciones y componentes temporales."""
@@ -228,9 +215,8 @@ def preprocesar_datos_avanzado(df):
     return X, y, y_cat, feature_cols
 
 
-# ============================================================================
+
 # SISTEMA DE CACHÉ INTELIGENTE
-# ============================================================================
 
 def get_model_cache_path():
     """Ruta para cachear el modelo entrenado."""
@@ -244,9 +230,7 @@ def calcular_hash_datos(X):
     ).hexdigest()
 
 
-# ============================================================================
 # ENTRENAMIENTO DEL MODELO MLP MEJORADO
-# ============================================================================
 
 @st.cache_resource
 def entrenar_modelo_mlp_avanzado(X, y, y_cat):
@@ -321,9 +305,7 @@ def entrenar_modelo_mlp_avanzado(X, y, y_cat):
     return modelo, scaler, metricas, y_test, y_pred_test, y_cat_test, y_pred_cat_test, report, X_train, X_test
 
 
-# ============================================================================
 # VALIDACIÓN TEMPORAL
-# ============================================================================
 
 def validacion_temporal_mlp(X, y):
     """Valida el modelo usando Time Series Split."""
@@ -373,9 +355,8 @@ def validacion_temporal_mlp(X, y):
     }
 
 
-# ============================================================================
+
 # ANÁLISIS DE IMPORTANCIA DE FEATURES
-# ============================================================================
 
 @st.cache_data
 def analizar_importancia_features(_X, _y):
@@ -391,10 +372,7 @@ def analizar_importancia_features(_X, _y):
     return importancias
 
 
-# ============================================================================
 # PREDICCIÓN CON INTERVALOS DE CONFIANZA
-# ============================================================================
-
 def predecir_con_bootstrap(modelo, scaler, X_train, y_train, df_entrada, n_bootstrap=10):
     """
     Genera predicciones con intervalos de confianza usando bootstrap.
@@ -550,40 +528,37 @@ def predecir_congestion_avanzado(modelo, scaler, df_global, feature_cols, hora, 
     return predicciones
 
 
-# ============================================================================
+
 # CARGA DE DATOS
-# ============================================================================
 
 @st.cache_data
 def cargar_datos():
     """Carga el dataset real desde CSV o genera sintético."""
     try:
         df = pd.read_csv('dataset_congestion_vehicular_chillan.csv')
-        st.success(f"✅ Dataset real cargado: {len(df)} registros")
+        st.success(f" Dataset real cargado: {len(df)} registros")
         return df
     except FileNotFoundError:
-        st.warning("⚠️ No se encontró CSV. Generando dataset sintético...")
+        st.warning(" No se encontró CSV. Generando dataset sintético...")
         df = generar_dataset_sintetico()
         return df
     except Exception as e:
-        st.error(f"❌ Error al cargar CSV: {str(e)}")
+        st.error(f" Error al cargar CSV: {str(e)}")
         st.warning("Generando dataset sintético como respaldo...")
         df = generar_dataset_sintetico()
         return df
 
 
-# ============================================================================
 # INTERFAZ STREAMLIT MEJORADA
-# ============================================================================
 
 # Header con diseño mejorado
-st.title("🚗 Sistema de Predicción de Congestión Vehicular")
+st.title(" Sistema de Predicción de Congestión Vehicular")
 st.markdown("**Chillán - Inteligencia Artificial | Universidad del Bío-Bío**")
 st.markdown("*Modelo de Regresión Supervisada con MLP (Multi-Layer Perceptron)*")
 st.markdown("---")
 
 # Cargar y entrenar modelo
-with st.spinner("🔄 Cargando datos y entrenando modelo MLP avanzado..."):
+with st.spinner(" Cargando datos y entrenando modelo MLP avanzado..."):
     df_global = cargar_datos()
     
     # Preprocesar datos
@@ -592,10 +567,10 @@ with st.spinner("🔄 Cargando datos y entrenando modelo MLP avanzado..."):
     # Entrenar modelo
     modelo, scaler, metricas, y_test, y_pred_test, y_cat_test, y_pred_cat_test, report, X_train, y_train = entrenar_modelo_mlp_avanzado(X, y, y_cat)
     
-    st.success("✅ Modelo MLP entrenado exitosamente")
+    st.success(" Modelo MLP entrenado exitosamente")
 
 # Métricas principales en cards
-st.header("📊 Métricas del Modelo")
+st.header(" Métricas del Modelo")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -631,7 +606,7 @@ with col4:
     )
 
 # Información del modelo
-with st.expander("ℹ️ Información del Dataset y Modelo", expanded=False):
+with st.expander("ℹInformación del Dataset y Modelo", expanded=False):
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total registros", f"{len(df_global):,}")
@@ -652,26 +627,26 @@ with st.expander("ℹ️ Información del Dataset y Modelo", expanded=False):
 st.markdown("---")
 
 # Sidebar - Configuración de Predicción
-st.sidebar.header("⚙️ Configuración de Predicción")
+st.sidebar.header(" Configuración de Predicción")
 
 hora = st.sidebar.slider("🕐 Hora del día", 0, 23, 8, help="Hora para predicción (0-23)")
 dia_semana = st.sidebar.selectbox(
-    "📅 Día de la semana", 
+    " Día de la semana", 
     ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'],
     help="Día de la semana para predicción"
 )
 temperatura = st.sidebar.number_input(
-    "🌡️ Temperatura (°C)", 
+    " Temperatura (°C)", 
     5, 35, 18,
     help="Temperatura ambiente en grados Celsius"
 )
 llueve = st.sidebar.checkbox(
-    "🌧️ ¿Está lloviendo?",
+    " ¿Está lloviendo?",
     help="Marca si hay condiciones de lluvia"
 )
 
 st.sidebar.markdown("---")
-st.sidebar.header("📈 Métricas Detalladas")
+st.sidebar.header(" Métricas Detalladas")
 
 with st.sidebar.expander("Ver métricas completas"):
     st.write("**Entrenamiento:**")
@@ -687,8 +662,8 @@ with st.sidebar.expander("Ver métricas completas"):
     st.metric("Acc. Cat.", f"{metricas['test_acc_cat']:.2%}")
 
 # Botón de predicción
-if st.sidebar.button("🚀 Predecir Congestión", type="primary", use_container_width=True):
-    with st.spinner("🔮 Generando predicciones con MLP..."):
+if st.sidebar.button(" Predecir Congestión", type="primary", use_container_width=True):
+    with st.spinner(" Generando predicciones con MLP..."):
         predicciones = predecir_congestion_avanzado(
             modelo, scaler, df_global, feature_cols,
             hora, dia_semana, temperatura, llueve,
@@ -705,7 +680,7 @@ if st.sidebar.button("🚀 Predecir Congestión", type="primary", use_container_
 # Exportación de datos
 st.sidebar.markdown("---")
 if 'predicciones' in st.session_state:
-    st.sidebar.header("💾 Exportar Resultados")
+    st.sidebar.header(" Exportar Resultados")
     df_export = pd.DataFrame(st.session_state['predicciones'])
     
     csv = df_export.to_csv(index=False)
@@ -722,15 +697,15 @@ st.markdown("---")
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    st.header("🗺️ Mapa de Congestión Predicha")
+    st.header(" Mapa de Congestión Predicha")
     
     if 'predicciones' in st.session_state:
         predicciones = st.session_state['predicciones']
         params = st.session_state.get('params', {})
         
         # Mostrar contexto de predicción
-        st.info(f"📍 **Contexto:** {params.get('dia', '')} - {params.get('hora', 0)}:00h | "
-                f"🌡️ {params.get('temp', 0)}°C | "
+        st.info(f" **Contexto:** {params.get('dia', '')} - {params.get('hora', 0)}:00h | "
+                f" {params.get('temp', 0)}°C | "
                 f"{'🌧️ Lluvia' if params.get('llueve', False) else '☀️ Sin lluvia'}")
         
         df_pred = pd.DataFrame(predicciones)
@@ -798,13 +773,13 @@ with col1:
             st.metric("🔴 Congestionados", congestionados, help="Segmentos con alta congestión (> 60)")
         with col_d:
             promedio = df_pred['prediccion'].mean()
-            st.metric("📊 Promedio", f"{promedio:.1f}", help="Índice promedio de congestión")
+            st.metric(" Promedio", f"{promedio:.1f}", help="Índice promedio de congestión")
         
     else:
-        st.info("👈 Configura los parámetros en el panel lateral y presiona **'Predecir Congestión'**")
+        st.info(" Configura los parámetros en el panel lateral y presiona **'Predecir Congestión'**")
         
         # Mostrar mapa con datos históricos promedio
-        st.subheader("📊 Mapa Base - Datos Históricos")
+        st.subheader(" Mapa Base - Datos Históricos")
         df_hist_avg = df_global.groupby(['segmento_nombre', 'latitud', 'longitud']).agg({
             'indice_congestion': 'mean'
         }).reset_index()
@@ -831,7 +806,7 @@ with col1:
         st.plotly_chart(fig_hist, use_container_width=True)
 
 with col2:
-    st.header("📋 Resultados por Segmento")
+    st.header(" Resultados por Segmento")
     
     if 'predicciones' in st.session_state:
         # Ordenar por índice de congestión (descendente)
@@ -852,11 +827,11 @@ with col2:
                 
                 col_i, col_ii = st.columns(2)
                 with col_i:
-                    st.write(f"🚦 **{pred['prediccion']}**")
+                    st.write(f" **{pred['prediccion']}**")
                     st.caption(f"Rango: {pred['pred_min']}-{pred['pred_max']}")
                 with col_ii:
                     st.write(f"**{pred['categoria']}**")
-                    st.caption(f"🚗 {pred['velocidad_estimada']} km/h")
+                    st.caption(f" {pred['velocidad_estimada']} km/h")
                 
                 st.markdown("---")
     else:
@@ -864,14 +839,14 @@ with col2:
 
 # Análisis del modelo
 st.markdown("---")
-st.header("📈 Análisis y Validación del Modelo")
+st.header(" Análisis y Validación del Modelo")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🎯 Rendimiento Regresión",
-    "📊 Clasificación",
-    "📉 Distribución",
-    "🔥 Matriz Confusión",
-    "⏱️ Validación Temporal"
+    "• Rendimiento Regresión",
+    "• Clasificación",
+    "• Distribución",
+    "• Matriz Confusión",
+    "• Validación Temporal"
 ])
 
 with tab1:
@@ -951,7 +926,7 @@ with tab1:
         st.write(f"- Mediana: **{np.median(errores):.2f}**")
 
 with tab2:
-    st.subheader("📊 Reporte de Clasificación (Categorías)")
+    st.subheader(" Reporte de Clasificación (Categorías)")
     
     # Métricas por categoría
     col1, col2, col3 = st.columns(3)
@@ -1022,7 +997,7 @@ with tab3:
         st.plotly_chart(fig_cat, use_container_width=True)
 
 with tab4:
-    st.subheader("🔥 Matriz de Confusión")
+    st.subheader("Matriz de Confusión")
     
     from sklearn.metrics import confusion_matrix
     
@@ -1062,7 +1037,7 @@ with tab4:
     st.markdown("---")
     
     # Heatmap de congestión por hora y día
-    st.subheader("🌡️ Patrón de Congestión: Hora vs Día")
+    st.subheader("Patrón de Congestión: Hora vs Día")
     
     df_agg = df_global.groupby(['hora', 'dia_semana'])['indice_congestion'].mean().reset_index()
     
@@ -1085,9 +1060,9 @@ with tab4:
     st.plotly_chart(fig_heatmap, use_container_width=True)
 
 with tab5:
-    st.subheader("⏱️ Validación Temporal (Time Series)")
+    st.subheader("Validación Temporal (Time Series)")
     
-    if st.button("🔄 Ejecutar Validación Temporal (5-Fold)", key="val_temporal"):
+    if st.button("Ejecutar Validación Temporal (5-Fold)", key="val_temporal"):
         val_results = validacion_temporal_mlp(X, y)
         
         col1, col2 = st.columns(2)
@@ -1143,13 +1118,13 @@ with tab5:
             fig_mae.update_layout(title='MAE por Fold', yaxis_title='MAE')
             st.plotly_chart(fig_mae, use_container_width=True)
         
-        st.success("✅ Validación temporal completada. El modelo muestra consistencia en predicciones temporales.")
+        st.success(" Validación temporal completada. El modelo muestra consistencia en predicciones temporales.")
     else:
         st.info("Presiona el botón para ejecutar validación temporal con 5 folds secuenciales")
 
 # Comparación histórica
 st.markdown("---")
-st.header("📊 Comparación con Datos Históricos")
+st.header(" Comparación con Datos Históricos")
 
 if 'predicciones' in st.session_state:
     params = st.session_state.get('params', {})
@@ -1248,6 +1223,6 @@ st.markdown("""
     <p><strong>Sistema de Predicción de Congestión Vehicular v2.0</strong></p>
     <p>Modelo: MLP Regressor con arquitectura profunda (256-128-64-32)</p>
     <p>Autores: Diego Loyola, Catalina Toro, Valentina Zúñiga | Universidad del Bío-Bío</p>
-    <p>🚗 Chillán IA - 2024</p>
+    <p> Chillán, Inteligencia Artificial UBB - 2025 </p>
 </div>
 """, unsafe_allow_html=True)
