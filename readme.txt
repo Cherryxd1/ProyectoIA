@@ -29,11 +29,13 @@ Requisitos del Sistema
 Instalación y Ejecución
 
 Para ejecutar el proyecto en un entorno local, siga los siguientes pasos:
-
+python -m streamlit run app.py para runear se debe estar en la carpeta
+ANTES DE TODO DEBE EJECUTAR EL ARCHIVO REPARAR_DATASET.PY (python reparar_dataset.py   )   
 1. Preparación del entorno:
    Asegúrese de que los archivos `app.py`, `reparar_dataset.py` y `requirements.txt` se encuentren en el mismo directorio.
 
 2. Instalación de dependencias:
    Se recomienda utilizar un entorno virtual. Ejecute el siguiente comando en la terminal 
    : // bash
+
    pip install -r requirements.txt
